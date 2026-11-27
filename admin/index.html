@@ -1,48 +1,410 @@
-<!doctype html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin</title><script src="../config.js"></script>
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090e0b">
+<title>Grand Billiard — Admin</title>
+<script src="../config.js"></script>
 <style>
-body{font-family:system-ui,sans-serif;background:#f3f5f4;margin:0;color:#222}
-header{background:#0b3d2e;color:#fff;padding:12px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}header b{margin-right:auto}
-button,select,input{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid #bbb;background:#fff}
-button{cursor:pointer}.p{background:#0b3d2e;color:#fff;border:0}.g{background:#2e9e5b;color:#fff;border:0}.r{background:#d64545;color:#fff;border:0}
-main{padding:16px;max-width:1000px;margin:auto}table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
-td,th{padding:10px;border-bottom:1px solid #eee;text-align:left;font-size:14px;vertical-align:top}
-.st{padding:2px 8px;border-radius:20px;background:#eee;font-size:12px}
-#login{max-width:300px;margin:100px auto;display:grid;gap:10px}
-</style></head><body>
-<div id="login"><h2>🎱 Admin</h2><input id="pw" type="password" placeholder="Parol"><button class="p" onclick="login()">Kirish</button><small id="err" style="color:#d64545"></small></div>
-<div id="app" hidden>
-<header><b>🎱 Admin panel</b><button onclick="tab('o')">Buyurtmalar</button><button onclick="tab('t')">Stollar</button><button onclick="logout()">Chiqish</button></header>
-<main>
-<section id="o"><p><select id="flt" onchange="loadO()"><option value="">Hammasi</option><option value="pending">Kutilmoqda</option><option value="accepted">Qabul qilingan</option><option value="rejected">Rad etilgan</option><option value="done">Yakunlangan</option><option value="cancelled">Bekor (mijoz)</option></select></p><div id="ol"></div></section>
-<section id="t" hidden><div id="tl"></div><h3>Yangi stol</h3><input id="nn" placeholder="Nomi"> <input id="np" type="number" placeholder="Narx/soat"> <button class="p" onclick="addT()">Qo'shish</button></section>
-</main></div>
+:root {
+  color-scheme: dark;
+  --bg: #090e0b;
+  --sidebar: #101813;
+  --panel: #131c16;
+  --panel-2: #17221a;
+  --line: #25332a;
+  --text: #eef2eb;
+  --muted: #8d9b8f;
+  --lime: #d7fa68;
+  --green: #81d8a1;
+  --amber: #edc866;
+  --red: #e78383;
+}
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif }
+button, input, select { font: inherit }
+button { cursor: pointer }
+[hidden] { display: none !important }
+#login {
+  width: min(390px, calc(100% - 32px)); margin: min(18vh, 150px) auto 0; padding: 28px;
+  display: grid; gap: 14px; border: 1px solid var(--line); border-radius: 16px;
+  background: linear-gradient(145deg, #17221a, #101612); box-shadow: 0 25px 80px rgba(0,0,0,.3);
+}
+.brand { display: flex; align-items: center; gap: 11px }
+.brand-mark { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: var(--lime); color: #17200d; font-weight: 900; font-size: 19px }
+.brand-name { font-size: 13px; font-weight: 850; letter-spacing: .12em }
+.brand-caption { display: block; color: var(--muted); font-size: 9px; letter-spacing: .13em }
+#login h2 { margin: 13px 0 0; font-size: 23px }
+#login p { margin: -8px 0 2px; color: var(--muted); font-size: 12px }
+input, select { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #0c130e; color: var(--text); outline: none }
+input:focus, select:focus { border-color: #8da64b }
+.button { border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; background: var(--panel-2); color: var(--text); transition: .15s ease }
+.button:hover { border-color: #667d48; transform: translateY(-1px) }
+.button.primary { border-color: var(--lime); background: var(--lime); color: #17200d; font-weight: 800 }
+.button.good { border-color: rgba(129,216,161,.3); background: rgba(129,216,161,.12); color: var(--green) }
+.button.danger { border-color: rgba(231,131,131,.28); background: rgba(231,131,131,.1); color: var(--red) }
+#err { min-height: 16px; color: var(--red); font-size: 11px }
+.app-shell { min-height: 100vh; display: grid; grid-template-columns: 220px minmax(0,1fr) }
+.sidebar { position: sticky; top: 0; height: 100vh; padding: 22px 14px; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--sidebar) }
+.sidebar .brand { padding: 0 10px 25px }
+.nav-caption { padding: 14px 10px 7px; color: #66736a; font-size: 9px; letter-spacing: .12em; text-transform: uppercase }
+.nav-button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px; margin: 2px 0; border: 0; border-radius: 8px; background: transparent; color: #a7b1a8; text-align: left; font-size: 12px }
+.nav-button span:first-child { width: 19px; color: var(--muted); font-size: 10px }
+.nav-button:hover { background: #19241b; color: var(--text) }
+.nav-button.active { background: var(--lime); color: #1b240f; font-weight: 800 }
+.nav-button.active span:first-child { color: #42581d }
+.sidebar-bottom { margin-top: auto }
+.online-card { padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: #0c130e; color: var(--muted); font-size: 10px }
+.online-card strong { display: block; margin-bottom: 5px; color: var(--green); font-size: 11px }
+.exit-button { width: 100%; margin-top: 12px; justify-content: space-between }
+.main-panel { min-width: 0 }
+.topbar { height: 62px; display: flex; align-items: center; gap: 16px; padding: 0 28px; border-bottom: 1px solid var(--line) }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 17px; color: var(--muted); font-size: 11px }
+.live-pill { border: 1px solid var(--line); border-radius: 99px; padding: 5px 10px; color: var(--green) }
+.live-dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--green) }
+main { max-width: 1440px; margin: 0 auto; padding: 28px }
+.page-head { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin-bottom: 22px }
+.eyebrow { color: var(--lime); font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase }
+h1 { margin: 5px 0 3px; font-size: 26px; letter-spacing: -.04em }
+.page-head p { margin: 0; color: var(--muted); font-size: 11px }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 11px; margin-bottom: 22px }
+.stat { min-height: 82px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel) }
+.stat-label { color: var(--muted); font-size: 10px }
+.stat-value { display: block; margin-top: 5px; font-size: 21px; font-weight: 800; letter-spacing: -.04em }
+.stat-value.lime { color: var(--lime) }
+.stat-foot { color: #6f7d71; font-size: 9px }
+.section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 10px }
+.section-title h2 { margin: 0; font-size: 14px }
+.section-title span { color: var(--muted); font-size: 10px }
+.live-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px }
+.live-card { padding: 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel) }
+.live-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px }
+.live-card h3 { margin: 0; font-size: 14px }
+.state { border-radius: 99px; padding: 4px 8px; color: var(--green); background: rgba(129,216,161,.1); font-size: 9px; white-space: nowrap }
+.state.pending { color: var(--amber); background: rgba(237,200,102,.1) }
+.live-time { margin: 12px 0; color: var(--muted); font-size: 10px }
+.live-time strong { color: var(--text); font-size: 22px; letter-spacing: -.04em }
+.live-info { display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font-size: 10px }
+.live-info b { color: var(--text); font-weight: 650 }
+.card-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 11px }
+.toolbar select { min-width: 160px; padding: 8px 10px; font-size: 11px }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel) }
+table { width: 100%; min-width: 780px; border-collapse: collapse }
+th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; font-size: 10px }
+th { color: #819087; font-size: 8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase }
+tbody tr:hover { background: rgba(255,255,255,.018) }
+tbody tr:last-child td { border-bottom: 0 }
+.customer { font-weight: 700; font-size: 11px }
+.sub { display: block; margin-top: 2px; color: var(--muted); font-size: 9px }
+.state-text { color: var(--green) }
+.state-text.wait { color: var(--amber) }
+.row-actions { display: flex; gap: 5px }
+.small-button { padding: 6px 8px; font-size: 9px }
+.empty { padding: 18px; color: var(--muted); text-align: center; font-size: 11px }
+.table-edit input { width: 100%; padding: 7px 8px; font-size: 11px }
+.table-edit input[type=checkbox] { width: 16px; accent-color: var(--lime) }
+.report-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(250px, .7fr); gap: 14px }
+.report-card { padding: 17px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel) }
+.report-card h2 { margin: 0; font-size: 13px }
+.report-card p { margin: 4px 0 16px; color: var(--muted); font-size: 10px }
+.chart { height: 190px; display: flex; align-items: end; gap: 10px; padding: 12px 4px 0; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom, transparent 0, transparent 46px, rgba(255,255,255,.045) 47px) }
+.bar-item { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: center; gap: 6px }
+.bar { width: min(32px, 72%); min-height: 4px; border-radius: 4px 4px 0 0; background: #45684f }
+.bar.today { background: var(--lime) }
+.bar-label { color: var(--muted); font-size: 8px; white-space: nowrap }
+.table-progress { display: grid; gap: 15px; margin-top: 18px }
+.progress-row { display: grid; gap: 6px }
+.progress-head { display: flex; justify-content: space-between; gap: 8px; font-size: 10px }
+.progress-head span:last-child { color: var(--muted) }
+.progress-track { height: 5px; overflow: hidden; border-radius: 99px; background: #25332a }
+.progress-fill { height: 100%; border-radius: inherit; background: var(--lime) }
+.table-heading { display: flex; align-items: center; gap: 10px }
+.table-heading h2 { margin: 0; font-size: 14px }
+.table-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px }
+.table-add input { max-width: 190px }
+.note { margin-top: 12px; color: var(--muted); font-size: 9px }
+@media (max-width: 980px) {
+  .app-shell { grid-template-columns: 185px minmax(0,1fr) }
+  main { padding: 22px }
+  .stats { grid-template-columns: repeat(2,minmax(0,1fr)) }
+}
+@media (max-width: 700px) {
+  .app-shell { display: block }
+  .sidebar { position: static; width: 100%; height: auto; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--line) }
+  .sidebar .brand { padding: 0 3px 9px }
+  .nav-caption, .sidebar-bottom { display: none }
+  .nav-list { display: flex; gap: 6px; overflow-x: auto }
+  .nav-button { width: auto; flex: 0 0 auto; margin: 0; padding: 8px 10px }
+  .topbar { height: 48px; padding: 0 16px }
+  main { padding: 18px 14px }
+  .page-head { align-items: start; flex-direction: column }
+  h1 { font-size: 23px }
+  .live-grid, .report-grid { grid-template-columns: 1fr }
+}
+@media (max-width: 420px) {
+  .stats { gap: 7px }
+  .stat { min-height: 73px; padding: 10px }
+  .stat-value { font-size: 18px }
+  .topbar-right { gap: 8px; font-size: 9px }
+  .live-card { padding: 12px }
+}
+</style>
+</head>
+<body>
+<div id="login">
+  <div class="brand"><div class="brand-mark">8</div><div><span class="brand-name">GRAND BILLIARD</span><span class="brand-caption">BOSHQARUV PANELI</span></div></div>
+  <h2>Admin panel</h2>
+  <p>Davom etish uchun admin parolini kiriting.</p>
+  <input id="pw" type="password" placeholder="Admin paroli" autocomplete="current-password">
+  <button class="button primary" onclick="login()">Kirish <span aria-hidden="true">→</span></button>
+  <small id="err"></small>
+</div>
+
+<div id="app" class="app-shell" hidden>
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">8</div><div><span class="brand-name">GRAND BILLIARD</span><span class="brand-caption">BOSHQARUV PANELI</span></div></div>
+    <div class="nav-caption">Klub nazorati</div>
+    <nav class="nav-list">
+      <button id="nav-o" class="nav-button active" onclick="tab('o')"><span>01</span>O'yinlar</button>
+      <button id="nav-r" class="nav-button" onclick="tab('r')"><span>02</span>Hisobotlar</button>
+      <button id="nav-t" class="nav-button" onclick="tab('t')"><span>03</span>Stollar</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="online-card"><strong><i class="live-dot"></i>Smena ochiq</strong>10:00 dan beri</div>
+      <button class="nav-button exit-button" onclick="logout()">Administrator <span>Chiqish ↗</span></button>
+    </div>
+  </aside>
+
+  <div class="main-panel">
+    <header class="topbar">
+      <span class="eyebrow">Klub nazorati</span>
+      <div class="topbar-right"><span class="live-pill"><i class="live-dot"></i>Jonli</span><span id="clock"></span></div>
+    </header>
+    <main>
+      <section id="o">
+        <div class="page-head"><div><div class="eyebrow">Bugungi boshqaruv</div><h1>O'yinlar</h1><p>Har bir stol va har bir buyurtma nazoratda.</p></div></div>
+        <div class="stats">
+          <div class="stat"><span class="stat-label">Hozir o'ynalmoqda</span><strong id="metricPlaying" class="stat-value lime">0</strong><span class="stat-foot">Faol stollar</span></div>
+          <div class="stat"><span class="stat-label">Bugungi buyurtmalar</span><strong id="metricToday" class="stat-value">0</strong><span class="stat-foot">Bugun boshlanadigan o'yinlar</span></div>
+          <div class="stat"><span class="stat-label">Tasdiqlangan qiymat</span><strong id="metricValue" class="stat-value">0</strong><span class="stat-foot">Qabul qilingan va yakunlangan</span></div>
+          <div class="stat"><span class="stat-label">Kutilayotgan</span><strong id="metricPending" class="stat-value">0</strong><span class="stat-foot">Admin tasdig'ini kutmoqda</span></div>
+        </div>
+        <div class="section-title"><h2>Stollar holati</h2><span id="tableSummary">Ma'lumot yuklanmoqda</span></div>
+        <div id="live" class="live-grid"></div>
+        <div class="section-title"><h2>Yaqinlashayotgan buyurtmalar</h2><span>Eng so'nggi buyurtmalar</span></div>
+        <div class="toolbar">
+          <select id="flt" onchange="loadO()">
+            <option value="">Barcha holatlar</option>
+            <option value="pending">Kutilmoqda</option>
+            <option value="accepted">Qabul qilingan</option>
+            <option value="rejected">Rad etilgan</option>
+            <option value="done">Yakunlangan</option>
+            <option value="cancelled">Mijoz bekor qilgan</option>
+          </select>
+          <button class="button" onclick="loadO()">Yangilash ↻</button>
+        </div>
+        <div id="ol"></div>
+      </section>
+
+      <section id="r" hidden>
+        <div class="page-head"><div><div class="eyebrow">Klub natijalari</div><h1>Hisobotlar</h1><p>Buyurtmalar va stol bandligi — bir qarashda.</p></div></div>
+        <div class="stats">
+          <div class="stat"><span class="stat-label">Tasdiqlangan qiymat</span><strong id="reportValue" class="stat-value lime">0 so'm</strong><span class="stat-foot">Qabul qilingan va yakunlangan buyurtmalar</span></div>
+          <div class="stat"><span class="stat-label">Yakunlangan o'yinlar</span><strong id="reportDone" class="stat-value">0</strong><span class="stat-foot">Bazadagi yakunlanganlar</span></div>
+          <div class="stat"><span class="stat-label">O'yin vaqti</span><strong id="reportHours" class="stat-value">0 soat</strong><span class="stat-foot">Yakunlangan buyurtmalar bo'yicha</span></div>
+          <div class="stat"><span class="stat-label">O'rtacha buyurtma</span><strong id="reportAverage" class="stat-value">0 so'm</strong><span class="stat-foot">Yakunlangan o'yinlar</span></div>
+        </div>
+        <div class="report-grid">
+          <div class="report-card"><h2>Buyurtmalar dinamikasi</h2><p>Oxirgi 7 kun — yakunlangan buyurtmalar qiymati.</p><div id="chart" class="chart"></div></div>
+          <div class="report-card"><h2>Stollar kesimida</h2><p>Yakunlangan buyurtmalar bo'yicha.</p><div id="tableReport" class="table-progress"></div></div>
+        </div>
+      </section>
+
+      <section id="t" hidden>
+        <div class="page-head"><div><div class="eyebrow">Klub sozlamalari</div><h1>Stollar</h1><p>Narx va mavjudlikni boshqaring.</p></div></div>
+        <div class="section-title"><div class="table-heading"><h2>Stollar ro'yxati</h2></div><button class="button" onclick="loadT()">Yangilash ↻</button></div>
+        <div id="tl"></div>
+        <div class="report-card" style="margin-top:16px"><h2>Yangi stol qo'shish</h2><p>Stol nomi va bir soatlik narxini kiriting.</p>
+          <div class="table-add"><input id="nn" placeholder="Stol nomi" maxlength="40"><input id="np" type="number" min="0" placeholder="Narx / soat"><button class="button primary" onclick="addTable()">Stol qo'shish +</button></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
 <script>
-const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const L=i=>new Date(new Date(i).getTime()+5*3600e3).toISOString();
-const ST={pending:"⏳ Kutilmoqda",accepted:"✅ Qabul",rejected:"❌ Rad",cancelled:"🚫 Bekor",done:"🏁 Yakun"};
-async function api(a,p={}){const r=await fetch(CFG.API,{method:"POST",headers:{"content-type":"application/json","x-admin":sessionStorage.pw||""},body:JSON.stringify({action:a,...p})});
-  const j=await r.json();if(j.error){if(r.status==401)logout();throw new Error(j.error)}return j}
-const run=async f=>{try{await f()}catch(e){alert(e.message)}};
-async function login(){sessionStorage.pw=$("pw").value;try{await api("a_tables");start()}catch(e){$("err").textContent=e.message}}
-function logout(){sessionStorage.removeItem("pw");location.reload()}
-function start(){$("login").hidden=true;$("app").hidden=false;loadO();loadT();setInterval(()=>{if(!$("o").hidden)loadO()},15000)}
-function tab(x){$("o").hidden=x!="o";$("t").hidden=x!="t"}
-async function loadO(){run(async()=>{const {rows}=await api("a_list",{status:$("flt").value||undefined});
- $("ol").innerHTML=`<table><tr><th>#</th><th>Mijoz</th><th>Stol / vaqt</th><th>Summa</th><th>Holat</th><th></th></tr>`+rows.map(b=>`<tr>
- <td>${b.id}</td><td>${esc(b.profiles?.name)}<br><a href="tel:${esc(b.profiles?.phone)}">${esc(b.profiles?.phone)}</a></td>
- <td>${esc(b.club_tables?.name)}<br>${L(b.start_at).slice(0,10)} ${L(b.start_at).slice(11,16)}–${L(b.end_at).slice(11,16)}</td>
- <td>${b.total.toLocaleString("ru")}</td><td><span class="st">${ST[b.status]}</span></td><td>
- ${b.status=="pending"?`<button class="g" onclick="st(${b.id},'accepted')">Qabul</button> <button class="r" onclick="st(${b.id},'rejected')">Rad</button>`:""}
- ${b.status=="accepted"?`<button class="p" onclick="st(${b.id},'done')">Yakunlash</button> <button class="r" onclick="st(${b.id},'rejected')">Bekor</button>`:""}</td></tr>`).join("")+"</table>"})}
-const st=(id,status)=>run(async()=>{await api("a_status",{id,status});loadO()});
-async function loadT(){run(async()=>{const {rows}=await api("a_tables");
- $("tl").innerHTML=`<table><tr><th>Nomi</th><th>Narx/soat</th><th>Faol</th><th></th></tr>`+rows.map(t=>`<tr>
- <td><input id="n${t.id}" value="${esc(t.name)}"></td><td><input id="p${t.id}" type="number" value="${t.price_per_hour}"></td>
- <td><input id="a${t.id}" type="checkbox" ${t.active?"checked":""}></td>
- <td><button class="p" onclick="saveT(${t.id})">Saqlash</button> <button class="r" onclick="delT(${t.id})">O'chirish</button></td></tr>`).join("")+"</table>"})}
-const saveT=id=>run(async()=>{await api("a_table_save",{id,name:$("n"+id).value,price_per_hour:$("p"+id).value,active:$("a"+id).checked});loadT()});
-const delT=id=>confirm("O'chirilsinmi?")&&run(async()=>{await api("a_table_del",{id});loadT()});
-const addT=()=>run(async()=>{await api("a_table_save",{name:$("nn").value,price_per_hour:$("np").value,active:true});$("nn").value=$("np").value="";loadT()});
-if(sessionStorage.pw)api("a_tables").then(start).catch(()=>{});
-</script></body></html>
+const $ = (id) => document.getElementById(id);
+const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+})[c]);
+const shifted = (iso) => new Date(new Date(iso).getTime() + 5 * 3600e3).toISOString();
+const money = (value) => `${Number(value || 0).toLocaleString("ru")} so'm`;
+const STATUS = { pending: "Kutilmoqda", accepted: "Qabul qilingan", rejected: "Rad etilgan", cancelled: "Bekor qilingan", done: "Yakunlangan" };
+let allRows = [];
+
+async function api(action, payload = {}) {
+  const response = await fetch(CFG.API, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-admin": sessionStorage.pw || "" },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  let result;
+  try { result = await response.json(); }
+  catch { throw new Error("API manzili noto'g'ri yoki server JSON qaytarmadi."); }
+  if (result.error) {
+    if (response.status === 401) logout();
+    throw new Error(result.error);
+  }
+  if (!response.ok) throw new Error(`Server xatosi (${response.status})`);
+  return result;
+}
+async function run(action) {
+  try { await action(); }
+  catch (error) { alert(error.message); }
+}
+async function login() {
+  sessionStorage.pw = $("pw").value;
+  try { await api("a_tables"); start(); }
+  catch (error) { $("err").textContent = error.message; }
+}
+function logout() { sessionStorage.removeItem("pw"); location.reload(); }
+function start() {
+  $("login").hidden = true;
+  $("app").hidden = false;
+  updateClock();
+  setInterval(updateClock, 30000);
+  loadO();
+  loadT();
+  setInterval(() => { if (!$("o").hidden) loadO(); }, 15000);
+}
+function updateClock() {
+  const now = new Date(Date.now() + 5 * 3600e3);
+  const iso = now.toISOString();
+  const months = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
+  $("clock").textContent = `${Number(iso.slice(8, 10))} ${months[Number(iso.slice(5, 7)) - 1]} · ${iso.slice(11, 16)}`;
+}
+function tab(name) {
+  ["o", "r", "t"].forEach((id) => { $(id).hidden = id !== name; $(`nav-${id}`).classList.toggle("active", id === name); });
+  if (name === "r") renderReports(allRows);
+}
+function dateText(iso) { return shifted(iso).slice(0, 10); }
+function timeText(iso) { return shifted(iso).slice(11, 16); }
+function orderStatusClass(status) { return status === "pending" ? "state pending" : "state"; }
+
+async function loadO() {
+  await run(async () => {
+    const result = await api("a_list", { status: $("flt").value || undefined });
+    allRows = result.rows || [];
+    renderDashboard(allRows);
+    renderOrders(allRows);
+    if (!$("r").hidden) renderReports(allRows);
+  });
+}
+function renderDashboard(rows) {
+  const now = Date.now();
+  const today = shifted(new Date().toISOString()).slice(0, 10);
+  const todayRows = rows.filter((b) => dateText(b.start_at) === today);
+  const playing = rows.filter((b) => b.status === "accepted" && +new Date(b.start_at) <= now && +new Date(b.end_at) > now);
+  const pending = rows.filter((b) => b.status === "pending");
+  const acceptedOrDone = rows.filter((b) => ["accepted", "done"].includes(b.status));
+  $("metricPlaying").textContent = playing.length;
+  $("metricToday").textContent = todayRows.length;
+  $("metricValue").textContent = money(acceptedOrDone.reduce((sum, b) => sum + Number(b.total || 0), 0));
+  $("metricPending").textContent = pending.length;
+  $("tableSummary").textContent = `${playing.length} ta stol hozir band`;
+
+  const cards = [...playing, ...pending.filter((b) => !playing.some((p) => p.id === b.id))].slice(0, 4);
+  $("live").innerHTML = cards.length ? cards.map((b) => {
+    const active = b.status === "accepted" && +new Date(b.start_at) <= now && +new Date(b.end_at) > now;
+    return `<article class="live-card">
+      <div class="live-card-head"><h3>${esc(b.club_tables?.name || "Stol")}</h3><span class="${orderStatusClass(b.status)}">${active ? "O'yin davom etmoqda" : esc(STATUS[b.status] || b.status)}</span></div>
+      <div class="live-time">${active ? "O'tgan vaqti" : "Boshlanishi"}<br><strong>${timeText(active ? b.start_at : b.start_at)}</strong> <span>— ${timeText(b.end_at)}</span></div>
+      <div class="live-info"><span>Mijoz <b>${esc(b.profiles?.name || "—")}</b></span><span>Summa <b>${money(b.total)}</b></span></div>
+      <div class="card-actions">${b.status === "pending" ? `<button class="button good small-button" onclick="setStatus(${b.id},'accepted')">Qabul qilish</button><button class="button danger small-button" onclick="setStatus(${b.id},'rejected')">Rad etish</button>` : ""}
+        ${b.status === "accepted" ? `<button class="button primary small-button" onclick="setStatus(${b.id},'done')">Yakunlash</button>` : ""}</div>
+    </article>`;
+  }).join("") : `<div class="empty" style="grid-column:1/-1">Hozir faol yoki kutilayotgan buyurtma yo'q.</div>`;
+}
+function renderOrders(rows) {
+  $("ol").innerHTML = rows.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Buyurtma</th><th>Mijoz</th><th>Stol / vaqt</th><th>Summa</th><th>Holat</th><th>Amallar</th></tr></thead>
+    <tbody>${rows.map((b) => `<tr>
+      <td>#${b.id}<span class="sub">${dateText(b.start_at)}</span></td>
+      <td><span class="customer">${esc(b.profiles?.name || "—")}</span><a class="sub" href="tel:${esc(b.profiles?.phone || "")}">${esc(b.profiles?.phone || "Telefon yo'q")}</a></td>
+      <td>${esc(b.club_tables?.name || "—")}<span class="sub">${timeText(b.start_at)} — ${timeText(b.end_at)}</span></td>
+      <td>${money(b.total)}</td><td><span class="${b.status === "pending" ? "state-text wait" : "state-text"}">${esc(STATUS[b.status] || b.status)}</span></td>
+      <td><div class="row-actions">${b.status === "pending" ? `<button class="button good small-button" onclick="setStatus(${b.id},'accepted')">Qabul</button><button class="button danger small-button" onclick="setStatus(${b.id},'rejected')">Rad</button>` : ""}
+      ${b.status === "accepted" ? `<button class="button primary small-button" onclick="setStatus(${b.id},'done')">Yakunlash</button><button class="button danger small-button" onclick="setStatus(${b.id},'rejected')">Bekor</button>` : ""}</div></td>
+    </tr>`).join("")}</tbody></table></div>` : `<div class="table-wrap empty">Hozircha buyurtmalar yo'q.</div>`;
+}
+function renderReports(rows) {
+  const done = rows.filter((b) => b.status === "done");
+  const value = done.reduce((sum, b) => sum + Number(b.total || 0), 0);
+  const hours = done.reduce((sum, b) => sum + (new Date(b.end_at) - new Date(b.start_at)) / 3600000, 0);
+  $("reportValue").textContent = money(value);
+  $("reportDone").textContent = done.length;
+  $("reportHours").textContent = `${Number(hours.toFixed(1))} soat`;
+  $("reportAverage").textContent = money(done.length ? Math.round(value / done.length) : 0);
+
+  const daily = [...Array(7)].map((_, index) => {
+    const date = new Date(Date.now() + 5 * 3600e3 - (6 - index) * 864e5).toISOString().slice(0, 10);
+    const amount = done.filter((b) => dateText(b.start_at) === date).reduce((sum, b) => sum + Number(b.total || 0), 0);
+    return { date, amount };
+  });
+  const max = Math.max(...daily.map((d) => d.amount), 1);
+  const today = new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10);
+  $("chart").innerHTML = daily.map((d) => `<div class="bar-item"><div class="bar ${d.date === today ? "today" : ""}" style="height:${Math.max(4, d.amount / max * 100)}%"></div><span class="bar-label">${d.date.slice(8)}.${d.date.slice(5, 7)}</span></div>`).join("");
+
+  const perTable = new Map();
+  done.forEach((b) => {
+    const name = b.club_tables?.name || "Stol";
+    perTable.set(name, (perTable.get(name) || 0) + Number(b.total || 0));
+  });
+  const values = [...perTable.entries()].sort((a, b) => b[1] - a[1]);
+  const maxTable = Math.max(...values.map((entry) => entry[1]), 1);
+  $("tableReport").innerHTML = values.length ? values.map(([name, total]) => `<div class="progress-row">
+    <div class="progress-head"><span>${esc(name)}</span><span>${money(total)}</span></div>
+    <div class="progress-track"><div class="progress-fill" style="width:${total / maxTable * 100}%"></div></div>
+  </div>`).join("") : `<div class="empty">Yakunlangan buyurtmalar hali yo'q.</div>`;
+}
+async function setStatus(id, status) {
+  await run(async () => { await api("a_status", { id, status }); await loadO(); });
+}
+async function loadT() {
+  await run(async () => {
+    const result = await api("a_tables");
+    const rows = result.rows || [];
+    $("tl").innerHTML = `<div class="table-wrap"><table class="table-edit">
+      <thead><tr><th>Stol nomi</th><th>Narx / soat</th><th>Faol</th><th>Amallar</th></tr></thead>
+      <tbody>${rows.map((table) => `<tr>
+        <td><input id="n${table.id}" value="${esc(table.name)}" maxlength="40"></td>
+        <td><input id="p${table.id}" type="number" min="0" value="${table.price_per_hour}"></td>
+        <td><input id="a${table.id}" type="checkbox" ${table.active ? "checked" : ""}></td>
+        <td><div class="row-actions"><button class="button primary small-button" onclick="saveTable(${table.id})">Saqlash</button><button class="button danger small-button" onclick="deleteTable(${table.id})">O'chirish</button></div></td>
+      </tr>`).join("")}</tbody></table></div>`;
+  });
+}
+async function saveTable(id) {
+  await run(async () => {
+    await api("a_table_save", { id, name: $("n" + id).value, price_per_hour: $("p" + id).value, active: $("a" + id).checked });
+    await loadT();
+  });
+}
+async function deleteTable(id) {
+  if (!confirm("Stol o'chirilsinmi?")) return;
+  await run(async () => { await api("a_table_del", { id }); await loadT(); });
+}
+async function addTable() {
+  await run(async () => {
+    await api("a_table_save", { name: $("nn").value, price_per_hour: $("np").value, active: true });
+    $("nn").value = "";
+    $("np").value = "";
+    await loadT();
+  });
+}
+if (sessionStorage.pw) api("a_tables").then(start).catch(() => sessionStorage.removeItem("pw"));
+</script>
+</body>
+</html>
