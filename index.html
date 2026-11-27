@@ -1,0 +1,60 @@
+<!doctype html><html lang="uz"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Billiard Klub</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script><script src="config.js"></script>
+<style>
+:root{--bg:#0b3d2e;--card:#124d3a;--ac:#f5c542;--tx:#fff;--mu:#9fc4b6}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx);padding:16px 16px 110px}
+h1{margin:0 0 4px}h3{margin:20px 0 8px;font-size:15px;color:var(--mu);font-weight:600}.muted{color:var(--mu)}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:0;border-radius:10px;padding:10px 14px;background:var(--card);color:var(--tx);font-size:15px}
+.chip.on{background:var(--ac);color:#222;font-weight:700}.chip:disabled{opacity:.3}
+.tb{display:flex;justify-content:space-between;width:100%;text-align:left;margin-bottom:8px;padding:14px;border:2px solid transparent;border-radius:12px;background:var(--card);color:var(--tx);font-size:16px}
+.tb.on{border-color:var(--ac)}
+#bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#06261c;display:flex;align-items:center;justify-content:space-between;gap:12px}
+#go{border:0;border-radius:12px;padding:14px 22px;background:var(--ac);color:#222;font-weight:700;font-size:16px}#go:disabled{opacity:.4}
+</style></head><body>
+<h1>🎱 Billiard Klub</h1><div class="muted">Stol va vaqtni tanlang</div>
+<h3>Sana</h3><div id="dates" class="row"></div>
+<h3>Davomiyligi</h3><div id="hours" class="row"></div>
+<h3>Stol</h3><div id="tables"></div>
+<h3>Boshlanish vaqti</h3><div id="slots" class="row"></div>
+<div id="bar"><div><div class="muted" style="font-size:12px">Jami</div><b id="sum">0 so'm</b></div><button id="go" disabled>Buyurtma berish</button></div>
+<script>
+const tg=Telegram.WebApp;tg.ready();tg.expand();
+const OPEN=10,CLOSE=26,DAYS=14,$=id=>document.getElementById(id); // 10:00 dan 02:00 gacha
+const tz=ms=>new Date(ms+5*3600e3).toISOString(), dayMs=d=>Date.parse(d+"T00:00:00+05:00");
+const dates=[...Array(DAYS)].map((_,i)=>tz(Date.now()+i*864e5).slice(0,10));
+let S={date:dates[0],hours:1,table:null,start:null,data:{tables:[],busy:[]}};
+async function api(a,p={}){
+  const r=await fetch(CFG.API,{method:"POST",headers:{"content-type":"application/json","x-init":tg.initData},body:JSON.stringify({action:a,...p})});
+  const j=await r.json();if(j.error)throw new Error(j.error);return j;}
+async function load(){try{S.data=await api("slots",{date:S.date});}catch(e){tg.showAlert(e.message)}render();}
+function render(){
+  $("dates").innerHTML=dates.map(d=>`<button class="chip ${d==S.date?"on":""}" data-k=date data-v=${d}>${d.slice(8)}.${d.slice(5,7)}</button>`).join("");
+  $("hours").innerHTML=[1,2,3,4,5].map(h=>`<button class="chip ${h==S.hours?"on":""}" data-k=hours data-v=${h}>${h} soat</button>`).join("");
+  $("tables").innerHTML=S.data.tables.map(t=>`<button class="tb ${t.id==S.table?"on":""}" data-k=table data-v=${t.id}><b>${t.name}</b><span>${t.price_per_hour.toLocaleString("ru")} so'm/soat</span></button>`).join("");
+  let h="";
+  if(!S.table)h="<span class=muted>Avval stolni tanlang</span>";
+  else for(let x=OPEN;x+S.hours<=CLOSE;x++){
+    const s=dayMs(S.date)+x*36e5,e=s+S.hours*36e5;
+    const bad=s<=Date.now()||S.data.busy.some(b=>b.table_id==S.table&&Date.parse(b.start_at)<e&&Date.parse(b.end_at)>s);
+    h+=`<button class="chip ${S.start==s?"on":""}" ${bad?"disabled":""} data-k=start data-v=${s}>${String(x%24).padStart(2,"0")}:00</button>`;}
+  $("slots").innerHTML=h;
+  const t=S.data.tables.find(t=>t.id==S.table);
+  $("sum").textContent=(t?t.price_per_hour*S.hours:0).toLocaleString("ru")+" so'm";
+  $("go").disabled=!(S.table&&S.start);}
+document.body.onclick=async e=>{
+  const b=e.target.closest("[data-k]");if(!b)return;const k=b.dataset.k,v=b.dataset.v;
+  if(k=="date"){S.date=v;S.start=null;return load();}
+  if(k=="hours"){S.hours=+v;S.start=null;}
+  if(k=="table"){S.table=+v;S.start=null;}
+  if(k=="start")S.start=+v;
+  render();};
+$("go").onclick=async()=>{
+  $("go").disabled=true;
+  try{const r=await api("book",{table_id:S.table,start:S.start,hours:S.hours});
+    tg.openTelegramLink(r.link);setTimeout(()=>tg.close(),400);}
+  catch(e){tg.showAlert(e.message);S.start=null;await load();}};
+if(!tg.initData)document.body.insertAdjacentHTML("afterbegin","<p style='color:#f88'>⚠️ Saytni Telegram bot orqali oching.</p>");
+load();
+</script></body></html>

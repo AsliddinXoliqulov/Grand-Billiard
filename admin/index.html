@@ -1,0 +1,48 @@
+<!doctype html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin</title><script src="../config.js"></script>
+<style>
+body{font-family:system-ui,sans-serif;background:#f3f5f4;margin:0;color:#222}
+header{background:#0b3d2e;color:#fff;padding:12px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}header b{margin-right:auto}
+button,select,input{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid #bbb;background:#fff}
+button{cursor:pointer}.p{background:#0b3d2e;color:#fff;border:0}.g{background:#2e9e5b;color:#fff;border:0}.r{background:#d64545;color:#fff;border:0}
+main{padding:16px;max-width:1000px;margin:auto}table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
+td,th{padding:10px;border-bottom:1px solid #eee;text-align:left;font-size:14px;vertical-align:top}
+.st{padding:2px 8px;border-radius:20px;background:#eee;font-size:12px}
+#login{max-width:300px;margin:100px auto;display:grid;gap:10px}
+</style></head><body>
+<div id="login"><h2>🎱 Admin</h2><input id="pw" type="password" placeholder="Parol"><button class="p" onclick="login()">Kirish</button><small id="err" style="color:#d64545"></small></div>
+<div id="app" hidden>
+<header><b>🎱 Admin panel</b><button onclick="tab('o')">Buyurtmalar</button><button onclick="tab('t')">Stollar</button><button onclick="logout()">Chiqish</button></header>
+<main>
+<section id="o"><p><select id="flt" onchange="loadO()"><option value="">Hammasi</option><option value="pending">Kutilmoqda</option><option value="accepted">Qabul qilingan</option><option value="rejected">Rad etilgan</option><option value="done">Yakunlangan</option><option value="cancelled">Bekor (mijoz)</option></select></p><div id="ol"></div></section>
+<section id="t" hidden><div id="tl"></div><h3>Yangi stol</h3><input id="nn" placeholder="Nomi"> <input id="np" type="number" placeholder="Narx/soat"> <button class="p" onclick="addT()">Qo'shish</button></section>
+</main></div>
+<script>
+const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const L=i=>new Date(new Date(i).getTime()+5*3600e3).toISOString();
+const ST={pending:"⏳ Kutilmoqda",accepted:"✅ Qabul",rejected:"❌ Rad",cancelled:"🚫 Bekor",done:"🏁 Yakun"};
+async function api(a,p={}){const r=await fetch(CFG.API,{method:"POST",headers:{"content-type":"application/json","x-admin":sessionStorage.pw||""},body:JSON.stringify({action:a,...p})});
+  const j=await r.json();if(j.error){if(r.status==401)logout();throw new Error(j.error)}return j}
+const run=async f=>{try{await f()}catch(e){alert(e.message)}};
+async function login(){sessionStorage.pw=$("pw").value;try{await api("a_tables");start()}catch(e){$("err").textContent=e.message}}
+function logout(){sessionStorage.removeItem("pw");location.reload()}
+function start(){$("login").hidden=true;$("app").hidden=false;loadO();loadT();setInterval(()=>{if(!$("o").hidden)loadO()},15000)}
+function tab(x){$("o").hidden=x!="o";$("t").hidden=x!="t"}
+async function loadO(){run(async()=>{const {rows}=await api("a_list",{status:$("flt").value||undefined});
+ $("ol").innerHTML=`<table><tr><th>#</th><th>Mijoz</th><th>Stol / vaqt</th><th>Summa</th><th>Holat</th><th></th></tr>`+rows.map(b=>`<tr>
+ <td>${b.id}</td><td>${esc(b.profiles?.name)}<br><a href="tel:${esc(b.profiles?.phone)}">${esc(b.profiles?.phone)}</a></td>
+ <td>${esc(b.club_tables?.name)}<br>${L(b.start_at).slice(0,10)} ${L(b.start_at).slice(11,16)}–${L(b.end_at).slice(11,16)}</td>
+ <td>${b.total.toLocaleString("ru")}</td><td><span class="st">${ST[b.status]}</span></td><td>
+ ${b.status=="pending"?`<button class="g" onclick="st(${b.id},'accepted')">Qabul</button> <button class="r" onclick="st(${b.id},'rejected')">Rad</button>`:""}
+ ${b.status=="accepted"?`<button class="p" onclick="st(${b.id},'done')">Yakunlash</button> <button class="r" onclick="st(${b.id},'rejected')">Bekor</button>`:""}</td></tr>`).join("")+"</table>"})}
+const st=(id,status)=>run(async()=>{await api("a_status",{id,status});loadO()});
+async function loadT(){run(async()=>{const {rows}=await api("a_tables");
+ $("tl").innerHTML=`<table><tr><th>Nomi</th><th>Narx/soat</th><th>Faol</th><th></th></tr>`+rows.map(t=>`<tr>
+ <td><input id="n${t.id}" value="${esc(t.name)}"></td><td><input id="p${t.id}" type="number" value="${t.price_per_hour}"></td>
+ <td><input id="a${t.id}" type="checkbox" ${t.active?"checked":""}></td>
+ <td><button class="p" onclick="saveT(${t.id})">Saqlash</button> <button class="r" onclick="delT(${t.id})">O'chirish</button></td></tr>`).join("")+"</table>"})}
+const saveT=id=>run(async()=>{await api("a_table_save",{id,name:$("n"+id).value,price_per_hour:$("p"+id).value,active:$("a"+id).checked});loadT()});
+const delT=id=>confirm("O'chirilsinmi?")&&run(async()=>{await api("a_table_del",{id});loadT()});
+const addT=()=>run(async()=>{await api("a_table_save",{name:$("nn").value,price_per_hour:$("np").value,active:true});$("nn").value=$("np").value="";loadT()});
+if(sessionStorage.pw)api("a_tables").then(start).catch(()=>{});
+</script></body></html>
