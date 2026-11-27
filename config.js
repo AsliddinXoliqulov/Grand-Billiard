@@ -1,2 +1,3 @@
-// Supabase loyihangiz REF ni yozing (Project Settings -> General)
-window.CFG = { API: "oqzxquplgedakuqqosgr.supabase.co/functions/v1/api" };
+window.CFG = {
+  API: "https://oqzxquplgedakuqqosgr.supabase.co/functions/v1/api"
+};
